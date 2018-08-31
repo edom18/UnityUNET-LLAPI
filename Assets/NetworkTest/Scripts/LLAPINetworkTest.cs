@@ -1,5 +1,4 @@
-﻿using System.Runtime.InteropServices;
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -30,7 +29,7 @@ public class LLAPINetworkTest : MonoBehaviour
     private bool _isServer = false;
     private bool _isStarted = false;
     private bool _hasConnected = false;
-    private bool _isConnecting = false;
+    private bool _hasAuthorized = false;
 
     // バッファの最大サイズ
     private readonly int _maxBufferSize = 65535;
@@ -78,6 +77,11 @@ public class LLAPINetworkTest : MonoBehaviour
     /// </summary>
     private void SyncPosition()
     {
+        if (!_hasAuthorized)
+        {
+            return;
+        }
+
         byte[] x = ConversionUtil.ToBytes(_target.position.x);
         byte[] y = ConversionUtil.ToBytes(_target.position.y);
         byte[] z = ConversionUtil.ToBytes(_target.position.z);
@@ -142,7 +146,7 @@ public class LLAPINetworkTest : MonoBehaviour
                 _hasConnected = false;
                 break;
             case NetworkEventType.DataEvent:
-                if (_isServer)
+                if (!_hasAuthorized)
                 {
                     Move(receiveBuffer);
                 }
@@ -160,7 +164,7 @@ public class LLAPINetworkTest : MonoBehaviour
             return;
         }
 
-        if (!_isServer && _hasConnected)
+        if (_hasConnected)
         {
             SyncPosition();
         }
@@ -170,6 +174,8 @@ public class LLAPINetworkTest : MonoBehaviour
 
     private void OnGUI()
     {
+        _hasAuthorized = GUI.Toggle(new Rect(Screen.width - 160, 10, 150, 30), _hasAuthorized, "Has Authorized");
+
         if (!_isStarted)
         {
             _isServer = GUI.Toggle(new Rect(10, 10, 150, 30), _isServer, "Is Server");
