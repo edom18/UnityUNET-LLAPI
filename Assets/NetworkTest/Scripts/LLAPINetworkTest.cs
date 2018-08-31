@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System.Runtime.InteropServices;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -77,14 +78,11 @@ public class LLAPINetworkTest : MonoBehaviour
     /// </summary>
     private void SyncPosition()
     {
-        byte[] x = System.BitConverter.GetBytes(_target.position.x);
-        byte[] y = System.BitConverter.GetBytes(_target.position.y);
-        byte[] z = System.BitConverter.GetBytes(_target.position.z);
+        byte[] x = ConversionUtil.ToBytes(_target.position.x);
+        byte[] y = ConversionUtil.ToBytes(_target.position.y);
+        byte[] z = ConversionUtil.ToBytes(_target.position.z);
 
-        byte[] pos = new byte[x.Length + y.Length + z.Length];
-        System.Array.Copy(x, 0, pos, 0, x.Length);
-        System.Array.Copy(y, 0, pos, x.Length, y.Length);
-        System.Array.Copy(z, 0, pos, x.Length + y.Length, z.Length);
+        byte[] pos = ConversionUtil.Serialize(x, y, z);
 
         SendData(pos);
     }
@@ -106,35 +104,11 @@ public class LLAPINetworkTest : MonoBehaviour
     /// <returns>パースしたVector3の位置データ</returns>
     private Vector3 Parse(byte[] data)
     {
-        byte[] xbyte = new byte[4];
-        System.Array.Copy(data, 0, xbyte, 0, 4);
-        float x = System.BitConverter.ToSingle(xbyte, 0);
-
-        byte[] ybyte = new byte[4];
-        System.Array.Copy(data, 4, ybyte, 0, 4);
-        float y = System.BitConverter.ToSingle(ybyte, 0);
-
-        byte[] zbyte = new byte[4];
-        System.Array.Copy(data, 8, zbyte, 0, 4);
-        float z = System.BitConverter.ToSingle(zbyte, 0);
+        float x = ConversionUtil.Deserialize(data, 0, 4);
+        float y = ConversionUtil.Deserialize(data, 4, 8);
+        float z = ConversionUtil.Deserialize(data, 8, 12);
 
         return new Vector3(x, y, z);
-    }
-
-    #region ### MonoBehaviour ###
-    private void Update()
-    {
-        if (!_isStarted)
-        {
-            return;
-        }
-
-        if (!_isServer && _hasConnected)
-        {
-            SyncPosition();
-        }
-
-        HandleEvent();
     }
 
     /// <summary>
@@ -176,6 +150,22 @@ public class LLAPINetworkTest : MonoBehaviour
             //case NetworkEventType.BroadcastEvent:
             //    break;
         }
+    }
+
+    #region ### MonoBehaviour ###
+    private void Update()
+    {
+        if (!_isStarted)
+        {
+            return;
+        }
+
+        if (!_isServer && _hasConnected)
+        {
+            SyncPosition();
+        }
+
+        HandleEvent();
     }
 
     private void OnGUI()
