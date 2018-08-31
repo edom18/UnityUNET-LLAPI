@@ -7,7 +7,7 @@ public class LLAPINetworkSystem : MonoBehaviour
 {
     [SerializeField]
     private QosType _qosType;
-    
+
     [SerializeField]
     private Transform _target;
 
@@ -136,7 +136,7 @@ public class LLAPINetworkSystem : MonoBehaviour
     /// <summary>
     /// ネットワークイベントのハンドリング
     /// </summary>
-    private void HandleEvent()
+    private void Receive()
     {
         int receiveHostId;
         int connectionId;
@@ -146,60 +146,86 @@ public class LLAPINetworkSystem : MonoBehaviour
         int dataSize;
         byte error;
 
-        NetworkEventType receiveType = NetworkTransport.Receive(out receiveHostId, out connectionId, out channelId, receiveBuffer, bufferSize, out dataSize, out error);
-
-        switch (receiveType)
+        do
         {
-            case NetworkEventType.Nothing:
-                break;
-            case NetworkEventType.ConnectEvent:
-                Debug.Log("Connected.");
+            NetworkEventType eventType = NetworkTransport.Receive(out receiveHostId, out connectionId, out channelId, receiveBuffer, bufferSize, out dataSize, out error);
 
-                if (_isServer)
-                {
-                    if (!_clientIds.Contains(connectionId))
-                    {
-                        _clientIds.Add(connectionId);
-                    }
-                }
-                else
-                {
-                    _connectionId = connectionId;
-                    _hasConnected = true;
-                }
+            switch (eventType)
+            {
+                case NetworkEventType.Nothing:
+                    // メッセージがなくなったら処理を抜ける
+                    return;
 
-                break;
-            case NetworkEventType.DisconnectEvent:
-                Debug.Log("Disconnected.");
+                case NetworkEventType.ConnectEvent:
+                    ConnectEvent(connectionId);
+                    break;
 
-                if (_isServer)
-                {
-                    if (_clientIds.Contains(connectionId))
-                    {
-                        _clientIds.Remove(connectionId);
-                    }
-                }
+                case NetworkEventType.DisconnectEvent:
+                    DisconnectEvent(connectionId);
+                    break;
 
-                _hasConnected = false;
+                case NetworkEventType.DataEvent:
+                    DataEvent(receiveBuffer, dataSize);
+                    break;
 
-                break;
-            case NetworkEventType.DataEvent:
-                if (_isServer)
-                {
-                    if (!_hasAuthorized)
-                    {
-                        Move(receiveBuffer);
-                    }
-                    Broadcast(receiveBuffer, dataSize);
-                }
-                else if (!_hasAuthorized)
-                {
-                    Move(receiveBuffer);
-                }
-                break;
-            //case NetworkEventType.BroadcastEvent:
-            //    break;
+                case NetworkEventType.BroadcastEvent:
+                    BroadcastEvent();
+                    break;
+            }
+        } while (true);
+    }
+
+    private void ConnectEvent(int connectionId)
+    {
+        Debug.Log("Connected.");
+
+        if (_isServer)
+        {
+            if (!_clientIds.Contains(connectionId))
+            {
+                _clientIds.Add(connectionId);
+            }
         }
+        else
+        {
+            _connectionId = connectionId;
+            _hasConnected = true;
+        }
+    }
+
+    private void DisconnectEvent(int connectionId)
+    {
+        Debug.Log("Disconnected.");
+
+        if (_isServer)
+        {
+            if (_clientIds.Contains(connectionId))
+            {
+                _clientIds.Remove(connectionId);
+            }
+        }
+        else
+        {
+            _hasConnected = false;
+        }
+    }
+
+    private void DataEvent(byte[] receiveBuffer, int dataSize)
+    {
+        if (!_hasAuthorized)
+        {
+            Move(receiveBuffer);
+        }
+
+        if (_isServer)
+        {
+            Broadcast(receiveBuffer, dataSize);
+        }
+    }
+
+    private void BroadcastEvent()
+    {
+
     }
 
     private void Broadcast(byte[] data, int dataSize)
@@ -219,7 +245,7 @@ public class LLAPINetworkSystem : MonoBehaviour
         }
 
         SyncPosition();
-        HandleEvent();
+        Receive();
     }
 
     private void OnGUI()
