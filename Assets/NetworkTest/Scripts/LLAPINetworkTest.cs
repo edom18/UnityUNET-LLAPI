@@ -31,8 +31,10 @@ public class LLAPINetworkTest : MonoBehaviour
     private bool _hasConnected = false;
     private bool _hasAuthorized = false;
 
+    private List<int> _clientIds = new List<int>();
+
     // バッファの最大サイズ
-    private readonly int _maxBufferSize = 65535;
+    private readonly int _maxBufferSize = 65500;
 
     /// <summary>
     /// ネットワークのセットアップ
@@ -57,10 +59,10 @@ public class LLAPINetworkTest : MonoBehaviour
     /// データ送信
     /// </summary>
     /// <param name="data">送信するデータ配列</param>
-    public void SendData(byte[] data)
+    public void SendData(byte[] data, int connectionId, int dataSize)
     {
         byte error;
-        NetworkTransport.Send(_hostId, _connectionId, _channelId, data, data.Length, out error);
+        NetworkTransport.Send(_hostId, connectionId, _channelId, data, dataSize, out error);
     }
 
     /// <summary>
@@ -77,6 +79,11 @@ public class LLAPINetworkTest : MonoBehaviour
     /// </summary>
     private void SyncPosition()
     {
+        if (!_isServer && !_hasConnected)
+        {
+            return;
+        }
+
         if (!_hasAuthorized)
         {
             return;
@@ -88,7 +95,18 @@ public class LLAPINetworkTest : MonoBehaviour
 
         byte[] pos = ConversionUtil.Serialize(x, y, z);
 
-        SendData(pos);
+        if (_isServer)
+        {
+
+            for (int i = 0; i < _clientIds.Count; i++)
+            {
+                SendData(pos, _clientIds[i], pos.Length);
+            }
+        }
+        else
+        {
+            SendData(pos, _connectionId, pos.Length);
+        }
     }
 
     /// <summary>
@@ -137,22 +155,58 @@ public class LLAPINetworkTest : MonoBehaviour
             case NetworkEventType.ConnectEvent:
                 Debug.Log("Connected.");
 
-                _connectionId = connectionId;
-                _hasConnected = true;
+                if (_isServer)
+                {
+                    if (!_clientIds.Contains(connectionId))
+                    {
+                        _clientIds.Add(connectionId);
+                    }
+                }
+                else
+                {
+                    _connectionId = connectionId;
+                    _hasConnected = true;
+                }
+
                 break;
             case NetworkEventType.DisconnectEvent:
                 Debug.Log("Disconnected.");
 
+                if (_isServer)
+                {
+                    if (_clientIds.Contains(connectionId))
+                    {
+                        _clientIds.Remove(connectionId);
+                    }
+                }
+
                 _hasConnected = false;
+
                 break;
             case NetworkEventType.DataEvent:
-                if (!_hasAuthorized)
+                if (_isServer)
+                {
+                    if (!_hasAuthorized)
+                    {
+                        Move(receiveBuffer);
+                    }
+                    Broadcast(receiveBuffer, dataSize);
+                }
+                else if (!_hasAuthorized)
                 {
                     Move(receiveBuffer);
                 }
                 break;
             //case NetworkEventType.BroadcastEvent:
             //    break;
+        }
+    }
+
+    private void Broadcast(byte[] data, int dataSize)
+    {
+        for (int i = 0; i < _clientIds.Count; i++)
+        {
+            SendData(data, _clientIds[i], dataSize);
         }
     }
 
@@ -164,11 +218,7 @@ public class LLAPINetworkTest : MonoBehaviour
             return;
         }
 
-        if (_hasConnected)
-        {
-            SyncPosition();
-        }
-
+        SyncPosition();
         HandleEvent();
     }
 
