@@ -34,10 +34,21 @@ public class ConversionUtil
     static public float ToFloat(byte[] values)
     {
         int x = 0;
-        x |= (values[0] <<  0);
-        x |= (values[1] <<  8);
-        x |= (values[2] << 16);
-        x |= (values[3] << 24);
+
+        if (System.BitConverter.IsLittleEndian)
+        {
+            x |= (values[3] <<  0);
+            x |= (values[2] <<  8);
+            x |= (values[1] << 16);
+            x |= (values[0] << 24);
+        }
+        else
+        {
+            x |= (values[0] <<  0);
+            x |= (values[1] <<  8);
+            x |= (values[2] << 16);
+            x |= (values[3] << 24);
+        }
 
         UIntFloat uif = new UIntFloat();
         uif.intValue = (uint)x;
@@ -54,20 +65,40 @@ public class ConversionUtil
     static public double ToDouble(byte[] values)
     {
         long x = 0;
-        x |= ((long)values[0] <<  0);
-        x |= ((long)values[1] <<  8);
-        x |= ((long)values[2] << 16);
-        x |= ((long)values[3] << 24);
-        x |= ((long)values[4] << 32);
-        x |= ((long)values[5] << 40);
-        x |= ((long)values[6] << 48);
-        x |= ((long)values[7] << 56);
+
+        if (System.BitConverter.IsLittleEndian)
+        {
+            x |= ((long)values[7] <<  0);
+            x |= ((long)values[6] <<  8);
+            x |= ((long)values[5] << 16);
+            x |= ((long)values[4] << 24);
+            x |= ((long)values[3] << 32);
+            x |= ((long)values[2] << 40);
+            x |= ((long)values[1] << 48);
+            x |= ((long)values[0] << 56);
+        }
+        else
+        {
+            x |= ((long)values[0] <<  0);
+            x |= ((long)values[1] <<  8);
+            x |= ((long)values[2] << 16);
+            x |= ((long)values[3] << 24);
+            x |= ((long)values[4] << 32);
+            x |= ((long)values[5] << 40);
+            x |= ((long)values[6] << 48);
+            x |= ((long)values[7] << 56);
+        }
 
         UIntFloat uif = new UIntFloat();
         uif.longValue = (ulong)x;
         return uif.doubleValue;
     }
 
+    /// <summary>
+    /// Floatの値をByte列に変換、ビッグエンディアンとして返す
+    /// </summary>
+    /// <param name="value">変換するfloat値</param>
+    /// <returns>ビッグエンディアンのByte配列</returns>
     static public byte[] ToBytes(float value)
     {
         UIntFloat uif = new UIntFloat();
@@ -79,9 +110,21 @@ public class ConversionUtil
         byte c = (byte)((x >> 16) & 0xff);
         byte d = (byte)((x >> 24) & 0xff);
 
-        return new[] { a, b, c, d };
+        if (System.BitConverter.IsLittleEndian)
+        {
+            return new[] { d, c, b, a };
+        }
+        else
+        {
+            return new[] { a, b, c, d };
+        }
     }
 
+    /// <summary>
+    /// Doubleの値をByte列に変換、ビッグエンディアンとして返す
+    /// </summary>
+    /// <param name="value">変換するdouble値</param>
+    /// <returns>ビッグエンディアンのByte配列</returns>
     static public byte[] ToBytes(double value)
     {
         UIntFloat uif = new UIntFloat();
@@ -97,7 +140,14 @@ public class ConversionUtil
         byte g = (byte)((x >> 48) & 0xff);
         byte h = (byte)((x >> 56) & 0xff);
 
-        return new[] { a, b, c, d, e, f, g, h };
+        if (System.BitConverter.IsLittleEndian)
+        {
+            return new[] { h, g, f, e, d, c, b, a };
+        }
+        else
+        {
+            return new[] { a, b, c, d, e, f, g, h };
+        }
     }
 
     static public byte[] Serialize(params byte[][] bytesArray)
