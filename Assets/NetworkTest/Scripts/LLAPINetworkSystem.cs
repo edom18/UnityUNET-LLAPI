@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
 
-public class LLAPINetworkTest : MonoBehaviour
+public class LLAPINetworkSystem : MonoBehaviour
 {
     [SerializeField]
     private QosType _qosType;
