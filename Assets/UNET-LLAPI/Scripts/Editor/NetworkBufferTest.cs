@@ -4,6 +4,7 @@ using NUnit.Framework;
 using UnityEngine.TestTools;
 using UnityEngine;
 using Assert = UnityEngine.Assertions.Assert;
+using UnetNetworkAPI;
 
 public class NetworkBufferTest
 {
