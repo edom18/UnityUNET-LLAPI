@@ -16,6 +16,8 @@ public class NetworkBuffer
 
     public int Position { get { return _pos; } }
 
+    #region ### Constructor ###
+
     public NetworkBuffer()
     {
         _buffer = new byte[_defaultSize];
@@ -30,6 +32,10 @@ public class NetworkBuffer
     {
         _buffer = buffer;
     }
+
+    #endregion ### Constructor ###
+
+    #region ### Read method series ###
 
     public byte ReadByte()
     {
@@ -251,6 +257,10 @@ public class NetworkBuffer
         return m;
     }
 
+    #endregion ### Read method series ###
+
+    #region ### Write method series ###
+
     public void WriteByte(byte value)
     {
         WriteCheckForSpace(1);
@@ -418,64 +428,6 @@ public class NetworkBuffer
         }
     }
 
-    public void Write(byte[] buffer, int count)
-    {
-        if (count > UInt16.MaxValue)
-        {
-            Debug.LogError("NetworkWriter Write: buffer is too large (" + count + ") bytes. The maximum buffer size is 64K bytes.");
-            return;
-        }
-
-        WriteBytes(buffer, (UInt16)count);
-    }
-
-    public void Write(byte[] buffer, int offset, int count)
-    {
-        if (count > UInt16.MaxValue)
-        {
-            Debug.LogError("NetworkWriter Write: buffer is too large (" + count + ") bytes. The maximum buffer size is 64K bytes.");
-            return;
-        }
-
-        WriteBytesAtOffset(buffer, (ushort)offset, (ushort)count);
-    }
-
-    protected void WriteBytesAndSize(byte[] buffer, int count)
-    {
-        if (buffer == null || count == 0)
-        {
-            Write((UInt16)0);
-            return;
-        }
-
-        if (count > UInt16.MaxValue)
-        {
-            Debug.LogError("NetworkWriter WriteBytesAndSize: buffer is too large (" + count + ") bytes. The maximum buffer size is 64K bytes.");
-            return;
-        }
-
-        Write((UInt16)count);
-        WriteBytes(buffer, (UInt16)count);
-    }
-
-    protected void WriteBytesFull(byte[] buffer)
-    {
-        if (buffer == null)
-        {
-            Write((UInt16)0);
-            return;
-        }
-
-        if (buffer.Length > UInt16.MaxValue)
-        {
-            Debug.LogError("NetworkWriter WriteBytes: buffer is too large (" + buffer.Length + ") bytes. The maximum buffer size is 64K bytes.");
-            return;
-        }
-
-        Write((UInt16)buffer.Length);
-        WriteBytes(buffer, (UInt16)buffer.Length);
-    }
-
     public void Write(Vector2 value)
     {
         Write(value.x);
@@ -540,6 +492,7 @@ public class NetworkBuffer
         Write(value.direction);
         Write(value.origin);
     }
+
     public void Write(Matrix4x4 value)
     {
         Write(value.m00);
@@ -560,6 +513,104 @@ public class NetworkBuffer
         Write(value.m33);
     }
 
+    /// <summary>
+    /// バッファを書き込む
+    /// </summary>
+    /// <param name="buffer">書き込むデータ</param>
+    /// <param name="count">書き込むデータ量</param>
+    public void Write(byte[] buffer, int count)
+    {
+        if (count > UInt16.MaxValue)
+        {
+            Debug.LogError("NetworkWriter Write: buffer is too large (" + count + ") bytes. The maximum buffer size is 64K bytes.");
+            return;
+        }
+
+        WriteBytes(buffer, (UInt16)count);
+    }
+
+    /// <summary>
+    /// 引数のデータをオフセット＋カウント分書き込む
+    /// </summary>
+    /// <param name="buffer">書き込むデータ</param>
+    /// <param name="offset">データのオフセット位置</param>
+    /// <param name="count">書き込むデータ量</param>
+    public void Write(byte[] buffer, int offset, int count)
+    {
+        if (count > UInt16.MaxValue)
+        {
+            Debug.LogError("NetworkWriter Write: buffer is too large (" + count + ") bytes. The maximum buffer size is 64K bytes.");
+            return;
+        }
+
+        WriteBytesAtOffset(buffer, (ushort)offset, (ushort)count);
+    }
+
+    /// <summary>
+    /// 引数のバッファを、第二引数のカウント分書き込む
+    /// また追加するバッファの前にバッファサイズを書き込む
+    /// </summary>
+    /// <param name="buffer">書き込むデータ</param>
+    /// <param name="count">書き込むカウント</param>
+    protected void WriteBytesAndSize(byte[] buffer, int count)
+    {
+        if (buffer == null || count == 0)
+        {
+            Write((UInt16)0);
+            return;
+        }
+
+        if (count > UInt16.MaxValue)
+        {
+            Debug.LogError("NetworkWriter WriteBytesAndSize: buffer is too large (" + count + ") bytes. The maximum buffer size is 64K bytes.");
+            return;
+        }
+
+        Write((UInt16)count);
+        WriteBytes(buffer, (UInt16)count);
+    }
+
+    /// <summary>
+    /// 引数のバッファをすべて書き込む
+    /// また追加するバッファの前にバッファサイズを書き込む
+    /// </summary>
+    protected void WriteBytesFull(byte[] buffer)
+    {
+        if (buffer == null)
+        {
+            Write((UInt16)0);
+            return;
+        }
+
+        if (buffer.Length > UInt16.MaxValue)
+        {
+            Debug.LogError("NetworkWriter WriteBytes: buffer is too large (" + buffer.Length + ") bytes. The maximum buffer size is 64K bytes.");
+            return;
+        }
+
+        Write((UInt16)buffer.Length);
+        WriteBytes(buffer, (UInt16)buffer.Length);
+    }
+
+    #endregion ### Write method series ###
+
+    #region ### Utility ###
+
+    /// <summary>
+    /// バッファのArraySegmentビューを返す
+    /// </summary>
+    private ArraySegment<byte> AsArraySegment()
+    {
+        return new ArraySegment<byte>(_buffer, 0, (int)_pos);
+    }
+
+    /// <summary>
+    /// バッファの空き容量をチェックする
+    /// 
+    /// 容量がない場合は「GrowthFactor」に応じて拡張する
+    /// また、「_buffersizeWarning」を超える場合は警告を表示する
+    /// </summary>
+    /// <param name="count">チェックする追加容量</param>
     public void WriteCheckForSpace(ushort count)
     {
         if (_pos + count <= _buffer.Length)
@@ -581,4 +632,84 @@ public class NetworkBuffer
         _buffer.CopyTo(tmp, 0);
         _buffer = tmp;
     }
+
+    /// <summary>
+    /// 指定されたデータを上書きセットする
+    /// </summary>
+    /// <param name="data">上書きするデータ</param>
+    public void SetBytes(byte[] data)
+    {
+        _pos = 0;
+        WriteCheckForSpace((ushort)data.Length);
+
+        Array.Clear(_buffer, 0, _buffer.Length);
+        Buffer.BlockCopy(data, 0, _buffer, 0, data.Length);
+    }
+
+    /// <summary>
+    /// バッファ全体を返す
+    /// </summary>
+    public byte[] GetByte()
+    {
+        return _buffer;
+    }
+
+    /// <summary>
+    /// 引数のバッファと入れ替え
+    /// </summary>
+    /// <param name="buffer">入れ替え対象のバッファ</param>
+    public void Replace(byte[] buffer)
+    {
+        _buffer = buffer;
+        _pos = 0;
+    }
+
+    /// <summary>
+    /// バッファの位置を頭に移動
+    /// </summary>
+    public void SeekZero()
+    {
+        _pos = 0;
+    }
+
+    /// <summary>
+    /// NetworkBufferをクリアする
+    /// </summary>
+    public void Clear()
+    {
+        for (int i = 0; i < _pos; i++)
+        {
+            _buffer[i] = 0;
+        }
+        _pos = 0;
+    }
+
+    /// <summary>
+    /// 他のNetworkBufferを追加書き込みする
+    /// </summary>
+    /// <param name="other">追加書き込みする他NetworkBuffer</param>
+    public void Write(NetworkBuffer other)
+    {
+        Write((ushort)other.Position);
+        Write(other.GetByte(), other.Position);
+    }
+
+    // TODO: あとで動作をしっかり確認する
+    public void ReadNetworkBuffer(NetworkBuffer copyTo)
+    {
+        ushort length = ReadUShort();
+
+        copyTo.WriteCheckForSpace(length);
+
+        // Copy to doesn't take a count :(
+        for (int i = 0; i < length; i++)
+        {
+            copyTo._buffer[copyTo._pos + i] = _buffer[_pos + i];
+        }
+
+        _pos += length;
+        copyTo._pos += length;
+    }
+
+    #endregion ### Utility ###
 }
